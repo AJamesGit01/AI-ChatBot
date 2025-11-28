@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Chatbot (Flask + OpenAI)</title>
+  <style>
+    :root {
+      --bg:#0f172a; --panel:#0b1226; --text:#e5e7eb; --muted:#9ca3af; --accent:#60a5fa;
+      --bubble:#121a2f; --user:#0f5132; --bot:#123d6b;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
+    .wrap{max-width:860px;margin:24px auto;padding:16px}
+    header{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;
+      border:1px solid #1f2937;background:#0b1226;border-radius:14px}
+    header h1{margin:0;font-size:20px} header span{color:var(--muted);font-size:14px}
+    #chat{margin-top:14px;height:65vh;overflow:auto;border:1px solid #1f2937;background:#0b1226;
+      border-radius:14px;padding:14px}
+    .msg{display:flex;margin:10px 0}
+    .bubble{max-width:80%;padding:10px 12px;border-radius:12px;background:var(--bubble);
+      border:1px solid #243046;white-space:pre-wrap;word-wrap:break-word}
+    .user .bubble{background:rgba(16,185,129,.10);border-color:#0f5132}
+    .bot .bubble{background:rgba(96,165,250,.10);border-color:#123d6b}
+    form{display:flex;gap:10px;margin-top:12px}
+    input[type=text]{flex:1;padding:12px 14px;background:#0b1226;border:1px solid #243046;
+      border-radius:12px;color:var(--text);outline:none} input[type=text]:focus{border-color:var(--accent)}
+    button{padding:10px 14px;border:0;border-radius:12px;background:var(--accent);color:#0b1226;font-weight:700;cursor:pointer}
+    .hint{color:var(--muted);font-size:13px;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>🤖 Local AI Chatbot</h1>
+      <span>Flask • OpenAI • Fetch</span>
+    </header>
+
+    <div id="chat" aria-live="polite"></div>
+
+    <form id="chat-form" autocomplete="off">
+      <input id="message" type="text" placeholder="Type a message…" required />
+      <button type="submit">Send</button>
+    </form>
+    <div class="hint">Your key stays on the server (.env). Never expose it to the browser.</div>
+  </div>
+
+  <script>
+    const chat = document.getElementById('chat');
+    const form = document.getElementById('chat-form');
+    const input = document.getElementById('message');
+
+    function add(role, text) {
+      const row = document.createElement('div');
+      row.className = 'msg ' + role;
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      bubble.textContent = text;
+      row.appendChild(bubble);
+      chat.appendChild(row);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      add('user', text);
+      input.value='';
+
+      try {
+        const res = await fetch('/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        if (res.ok) add('bot', data.reply);
+        else add('bot', 'Error: ' + (data.error || 'Unknown error'));
+      } catch (err) {
+        add('bot', 'Network error.');
+        console.error(err);
+      }
+    });
+  </script>
+</body>
+</html>
