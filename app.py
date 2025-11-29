@@ -1,6 +1,7 @@
 import os, time
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from flask import Response
 from dotenv import load_dotenv
 
 # --- Load env ---
@@ -42,59 +43,49 @@ def home():
 def chat():
     data = request.get_json(silent=True) or {}
     user_message = (data.get("message") or "").strip()
+
     if not user_message:
         return jsonify({"error": "message is required"}), 400
-    if len(user_message) > 4000:
-        return jsonify({"error": "message too long"}), 413
 
-    # Small retry loop for transient 429s (rate limits)
-    attempts = 0
-    while True:
+    def generate():
         try:
             if PROVIDER == "openai":
-                resp = oai.chat.completions.create(
+                # STREAMING MODE
+                stream = oai.chat.completions.create(
                     model=OPENAI_MODEL,
                     messages=[
-                        {"role": "system", "content": "You are a helpful, concise assistant."},
-                        {"role": "user", "content": user_message},
+                        {"role": "system", "content": "You are a helpful assistant."},
+                        {"role": "user", "content": user_message}
                     ],
                     temperature=TEMPERATURE,
                     max_tokens=MAX_TOKENS,
+                    stream=True
                 )
-                reply = resp.choices[0].message.content
 
-            else:  # gemini
-                # Simple single-turn prompt; for multi-turn use ChatSession
-                prompt = f"User: {user_message}\nAssistant:"
-                out = g_model.generate_content(
-                    prompt,
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.get("content")
+                    if delta:
+                        yield delta
+
+            else:  # GEMINI STREAMING
+                response = g_model.generate_content(
+                    user_message,
                     generation_config={
                         "temperature": TEMPERATURE,
-                        "max_output_tokens": MAX_TOKENS,
-                    }
+                        "max_output_tokens": MAX_TOKENS
+                    },
+                    stream=True
                 )
-                reply = (out.text or "").strip()
 
-            if not reply:
-                reply = "I couldn't generate a response."
-            return jsonify({"reply": reply})
+                for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
 
         except Exception as e:
-            err = str(e)
+            yield f"[ERROR]: {str(e)}"
 
-            # Quota/rate-limit handling (Gemini/OpenAI)
-            # Gemini: 429 RESOURCE_EXHAUSTED; OpenAI: 429 rate limit or insufficient_quota
-            if "429" in err or "Rate limit" in err or "RESOURCE_EXHAUSTED" in err:
-                attempts += 1
-                if attempts > 3:
-                    return jsonify({"error": "Rate limit hit repeatedly. Please try again shortly."}), 429
-                time.sleep(0.6 * (2 ** attempts))
-                continue
+    return Response(generate(), mimetype="text/plain")
 
-            if "insufficient_quota" in err or "quota" in err.lower():
-                return jsonify({"error": "Quota exhausted for this API key. Add billing or wait for reset."}), 402
-
-            return jsonify({"error": "Upstream API error. Please try again."}), 502
 
 if __name__ == "__main__":
     import socket
