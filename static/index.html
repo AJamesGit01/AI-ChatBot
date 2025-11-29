@@ -1,87 +1,573 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AI Chatbot (Flask + OpenAI)</title>
-  <style>
-    :root {
-      --bg:#0f172a; --panel:#0b1226; --text:#e5e7eb; --muted:#9ca3af; --accent:#60a5fa;
-      --bubble:#121a2f; --user:#0f5132; --bot:#123d6b;
-    }
-    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;}
-    .wrap{max-width:860px;margin:24px auto;padding:16px}
-    header{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;
-      border:1px solid #1f2937;background:#0b1226;border-radius:14px}
-    header h1{margin:0;font-size:20px} header span{color:var(--muted);font-size:14px}
-    #chat{margin-top:14px;height:65vh;overflow:auto;border:1px solid #1f2937;background:#0b1226;
-      border-radius:14px;padding:14px}
-    .msg{display:flex;margin:10px 0}
-    .bubble{max-width:80%;padding:10px 12px;border-radius:12px;background:var(--bubble);
-      border:1px solid #243046;white-space:pre-wrap;word-wrap:break-word}
-    .user .bubble{background:rgba(16,185,129,.10);border-color:#0f5132}
-    .bot .bubble{background:rgba(96,165,250,.10);border-color:#123d6b}
-    form{display:flex;gap:10px;margin-top:12px}
-    input[type=text]{flex:1;padding:12px 14px;background:#0b1226;border:1px solid #243046;
-      border-radius:12px;color:var(--text);outline:none} input[type=text]:focus{border-color:var(--accent)}
-    button{padding:10px 14px;border:0;border-radius:12px;background:var(--accent);color:#0b1226;font-weight:700;cursor:pointer}
-    .hint{color:var(--muted);font-size:13px;margin-top:6px}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI CHATBOT</title>
+
+<style>
+/* ========================================================= */
+/*                      THEME COLORS                         */
+/* ========================================================= */
+:root {
+  --bg: #0f172a;
+  --panel: #0b1226;
+  --text: #e5e7eb;
+  --muted: #9ca3af;
+  --accent: #60a5fa;
+  --bubble: #121a2f;
+  --user: rgba(16,185,129,.12);
+  --bot: rgba(96,165,250,.12);
+}
+
+.light {
+  --bg: #f3f4f6;
+  --panel: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --bubble: #e5e7eb;
+  --user: #d1fae5;
+  --bot: #dbeafe;
+}
+
+/* ========================================================= */
+/*                    PAGE STRUCTURE                         */
+/* ========================================================= */
+
+body {
+  margin: 0;
+  display: flex;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu;
+}
+
+/* ========================= Sidebar ======================== */
+#sidebar {
+  width: 260px;
+  background: var(--panel);
+  border-right: 1px solid #1f2937;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+#new-chat {
+  padding: 10px;
+  background: var(--accent);
+  border-radius: 10px;
+  color: white;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+#conv-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.conv-item {
+  padding: 10px;
+  margin-bottom: 8px;
+  background: var(--bubble);
+  border-radius: 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.conv-item:hover {
+  border-color: var(--accent);
+}
+.conv-item.active {
+  background: var(--accent);
+  color: black;
+}
+
+/* ========================= Main Panel ===================== */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+/* Header */
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--panel);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #1f2937;
+}
+
+#chat {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid #1f2937;
+  padding: 14px;
+  border-radius: 12px;
+}
+
+/* Messages */
+.msg {
+  margin: 10px 0;
+}
+.bubble {
+  padding: 10px 12px;
+  border-radius: 12px;
+  max-width: 80%;
+  background: var(--bubble);
+}
+.user .bubble { background: var(--user); }
+.bot .bubble { background: var(--bot); }
+
+#typing {
+  margin-top: 5px;
+  color: var(--muted);
+}
+
+/* Input area */
+#chat-form {
+  display: flex;
+  margin-top: 12px;
+  gap: 10px;
+}
+input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #243046;
+  background: var(--panel);
+  color: var(--text);
+}
+button {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--accent);
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+/* Microphone Button */
+/* Microphone Wrapper */
+#mic-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Microphone Button */
+#mic {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  background: #10b981;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.25s ease;
+  font-size: 26px;
+}
+
+/* Microphone Icon */
+#mic::before {
+  content: "🎤";
+  z-index: 5;
+  position: relative;
+}
+
+/* Pulse Glow Effect */
+#mic.recording {
+  background: #34d399;
+  box-shadow: 0px 0px 18px #34d399, 0px 0px 36px #10b981;
+}
+
+/* Centered Wave Animation */
+#mic.recording::after {
+  content: "";
+  position: absolute;
+  top: 50%;    
+  left: 50%;
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  border: 3px solid rgba(52, 211, 153, 0.7);
+  transform: translate(-50%, -50%);
+  animation: pulse-mic 1.2s infinite ease-out;
+}
+
+/* Perfect Center Pulse Animation */
+@keyframes pulse-mic {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0;
+  }
+}
+
+
+
+/* Typing cursor */
+.cursor {
+  display: inline-block;
+  width: 8px;
+  background: var(--text);
+  animation: blink 1s infinite;
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>🤖 Local AI Chatbot</h1>
-      <span>Flask • OpenAI • Fetch</span>
-    </header>
 
-    <div id="chat" aria-live="polite"></div>
+<!-- ====================== SIDEBAR ======================= -->
+<div id="sidebar">
+  <button id="new-chat">+ New Chat</button>
+  <div id="conv-list"></div>
+</div>
 
-    <form id="chat-form" autocomplete="off">
-      <input id="message" type="text" placeholder="Type a message…" required />
-      <button type="submit">Send</button>
-    </form>
-    <div class="hint">Your key stays on the server (.env). Never expose it to the browser.</div>
+<!-- ====================== MAIN ========================== -->
+<div id="main">
+
+  <header>
+    <h2>🤖 AI CHATBOT NI ALLEN</h2>
+    <button id="toggle-theme">☀️/🌙</button>
+  </header>
+
+  <div id="chat"></div>
+
+  <div id="typing" style="display:none;">
+    Allen is typing<span id="dots">.</span>
   </div>
 
-  <script>
-    const chat = document.getElementById('chat');
-    const form = document.getElementById('chat-form');
-    const input = document.getElementById('message');
+  <form id="chat-form">
+    <input id="message" type="text" placeholder="Type a message…" required />
+    <button type="submit">Send</button>
+    <div id="mic-wrapper">
+      <button id="mic" type="button"></button>
+    </div>
+  </form>
 
-    function add(role, text) {
-      const row = document.createElement('div');
-      row.className = 'msg ' + role;
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      bubble.textContent = text;
-      row.appendChild(bubble);
-      chat.appendChild(row);
-      chat.scrollTop = chat.scrollHeight;
-    }
+</div>
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      add('user', text);
-      input.value='';
+<script>
+/* ========================================================= */
+/*                  UPDATED CONVERSATION MODEL                */
+/* ========================================================= */
 
-      try {
-        const res = await fetch('/chat', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ message: text })
-        });
-        const data = await res.json();
-        if (res.ok) add('bot', data.reply);
-        else add('bot', 'Error: ' + (data.error || 'Unknown error'));
-      } catch (err) {
-        add('bot', 'Network error.');
-        console.error(err);
-      }
-    });
-  </script>
-</body>
-</html>
+let conversations = JSON.parse(localStorage.getItem("all-conversations") || "{}");
+
+// Auto-upgrade old formats: convert arrays → { title, messages }
+for (const id of Object.keys(conversations)) {
+  if (Array.isArray(conversations[id])) {
+    conversations[id] = {
+      title: "",
+      messages: conversations[id]
+    };
+  }
+}
+
+let currentId = localStorage.getItem("current-conv") || createNewConversation();
+
+function createNewConversation() {
+  const id = "conv-" + Date.now();
+  conversations[id] = { title: "New Chat", messages: [] };
+  saveConversations();
+  localStorage.setItem("current-conv", id);
+  loadSidebar();
+  loadConversation(id);
+  return id;
+}
+
+function saveConversations() {
+  localStorage.setItem("all-conversations", JSON.stringify(conversations));
+}
+
+/* ========================================================= */
+/*                    SIDEBAR RENDERING                      */
+/* ========================================================= */
+
+function loadSidebar() {
+  const list = document.getElementById("conv-list");
+  list.innerHTML = "";
+
+  Object.keys(conversations).forEach(id => {
+    const item = document.createElement("div");
+    item.className = "conv-item" + (id === currentId ? " active" : "");
+
+    const title = document.createElement("span");
+    title.textContent = conversations[id].title || "New Chat";
+
+    /* Rename button */
+    const renameBtn = document.createElement("button");
+    renameBtn.textContent = "✏️";
+    renameBtn.className = "rename-btn";
+    renameBtn.onclick = (e) => {
+      e.stopPropagation();
+      renameConversation(id);
+    };
+
+    /* Delete button */
+    const delBtn = document.createElement("button");
+    delBtn.textContent = "🗑️";
+    delBtn.className = "delete-btn";
+    delBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteConversation(id);
+    };
+
+    item.onclick = () => {
+      currentId = id;
+      localStorage.setItem("current-conv", id);
+      loadSidebar();
+      loadConversation(id);
+    };
+
+    item.appendChild(title);
+    item.appendChild(renameBtn);
+    item.appendChild(delBtn);
+    list.appendChild(item);
+  });
+}
+
+/* Style the rename/delete buttons */
+const style = document.createElement("style");
+style.textContent = `
+  .rename-btn, .delete-btn {
+    float: right;
+    margin-left: 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: var(--muted);
+  }
+  .rename-btn:hover, .delete-btn:hover {
+    color: var(--accent);
+  }
+`;
+document.head.appendChild(style);
+
+/* ========================================================= */
+/*               LOAD A CONVERSATION INTO CHAT               */
+/* ========================================================= */
+
+function loadConversation(id) {
+  const chat = document.getElementById("chat");
+  chat.innerHTML = "";
+
+  conversations[id].messages.forEach(msg => {
+    addMessage(msg.role, msg.text);
+  });
+}
+
+/* ========================================================= */
+/*                 RENAME / DELETE ACTIONS                   */
+/* ========================================================= */
+
+function renameConversation(id) {
+  const newName = prompt("Rename conversation:", conversations[id].title);
+  if (newName !== null && newName.trim() !== "") {
+    conversations[id].title = newName.trim();
+    saveConversations();
+    loadSidebar();
+  }
+}
+
+function deleteConversation(id) {
+  if (!confirm("Delete this conversation?")) return;
+
+  delete conversations[id];
+  saveConversations();
+
+  // If the deleted one is active, create a new chat
+  if (currentId === id) {
+    currentId = createNewConversation();
+  }
+
+  loadSidebar();
+  loadConversation(currentId);
+}
+
+/* ========================================================= */
+/*                    SAVE INDIVIDUAL MESSAGE                */
+/* ========================================================= */
+
+function saveMessage(role, text) {
+  conversations[currentId].messages.push({ role, text });
+
+  // Auto-generate title from first user message
+  if (conversations[currentId].messages.length === 1) {
+    conversations[currentId].title = text.slice(0, 20) + "...";
+  }
+
+  saveConversations();
+  loadSidebar();
+}
+
+/* ========================================================= */
+/*                     TYPING INDICATOR                      */
+/* ========================================================= */
+
+const chatBox = document.getElementById("chat");
+const typing = document.getElementById("typing");
+const dots = document.getElementById("dots");
+
+setInterval(() => {
+  dots.textContent = dots.textContent.length >= 3 ? "." : dots.textContent + ".";
+}, 400);
+
+/* ========================================================= */
+/*                ADD MESSAGE TO CHAT WINDOW                 */
+/* ========================================================= */
+
+function addMessage(role, text) {
+  const row = document.createElement("div");
+  row.className = "msg " + role;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.textContent = text;
+
+  row.appendChild(bubble);
+  chatBox.appendChild(row);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  return bubble;
+}
+
+/* ========================================================= */
+/*                   STREAMING RESPONSE                      */
+/* ========================================================= */
+
+async function streamResponse(userText) {
+  typing.style.display = "block";
+
+  const botBubble = addMessage("bot", "");
+  const cursor = document.createElement("span");
+  cursor.classList.add("cursor");
+  botBubble.appendChild(cursor);
+
+  const response = await fetch("/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      message: userText,
+      history: conversations[currentId].messages
+    })
+  });
+
+  if (!response.body) {
+    botBubble.textContent = "Error retrieving response.";
+    typing.style.display = "none";
+    return;
+  }
+
+  let fullText = "";
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    const chunk = decoder.decode(value);
+    fullText += chunk;
+
+    botBubble.textContent = fullText;
+    botBubble.appendChild(cursor);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  cursor.remove();
+  typing.style.display = "none";
+
+  saveMessage("bot", fullText);
+
+  const utter = new SpeechSynthesisUtterance(fullText);
+  utter.rate = 1.1;
+  speechSynthesis.speak(utter);
+}
+
+/* ========================================================= */
+/*                        FORM SUBMIT                        */
+/* ========================================================= */
+
+document.getElementById("chat-form").onsubmit = async (e) => {
+  e.preventDefault();
+
+  const text = document.getElementById("message").value.trim();
+  if (!text) return;
+
+  addMessage("user", text);
+  saveMessage("user", text);
+
+  document.getElementById("message").value = "";
+  await streamResponse(text);
+};
+
+/* ========================================================= */
+/*                      NEW CHAT BUTTON                      */
+/* ========================================================= */
+
+document.getElementById("new-chat").onclick = () => {
+  currentId = createNewConversation();
+};
+
+/* ========================================================= */
+/*                     MIC INPUT + ANIMATION                 */
+/* ========================================================= */
+
+const mic = document.getElementById("mic");
+
+if ("webkitSpeechRecognition" in window || "SpeechRecognition" in window) {
+  const Recog = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const recog = new Recog();
+  recog.lang = "en-US";
+  recog.interimResults = true;
+
+  mic.onclick = () => {
+    recog.start();
+    mic.classList.add("recording");  // start animation
+  };
+
+  recog.onresult = (e) => {
+    document.getElementById("message").value = e.results[0][0].transcript;
+  };
+
+  recog.onend = () => {
+    mic.classList.remove("recording"); // stop animation
+  };
+} else {
+  mic.style.display = "none";
+}
+
+
+/* ========================================================= */
+/*                     LIGHT / DARK MODE                     */
+/* ========================================================= */
+
+document.getElementById("toggle-theme").onclick = () => {
+  document.body.classList.toggle("light");
+};
+
+/* ========================================================= */
+/*                 INITIAL LOAD OF UI ELEMENTS               */
+/* ========================================================= */
+
+loadSidebar();
+loadConversation(currentId);
+</script>
